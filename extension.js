@@ -13,7 +13,7 @@ import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 let utcclock;
 
 let UTCClock = GObject.registerClass(
-    class UTCCLock extends PanelMenu.Button {
+    class UTCClock extends PanelMenu.Button {
 
         _init(metadata, settings, gnomesettings) {
             super._init(0, 'UTCClock', false);
@@ -97,6 +97,11 @@ let UTCClock = GObject.registerClass(
             this.updateTime();
         }
 
+        setTimeZone() {
+            this.format_params['timeZone'] = this.settings.get_string('time-zone');
+            this.updateTime();
+        }
+
         setPosition(position) {
             this.get_parent().remove_actor(this);
             Main.panel._centerBox.insert_child_at_index(this, position);
@@ -163,6 +168,19 @@ let UTCClock = GObject.registerClass(
                 this.settings.set_boolean('light-opacity', value);
             });
             this.menu.addMenuItem(this.ClockMenuItemOpacity);
+
+            this.ClockMenuTimeZone = new PopupMenu.PopupSubMenuMenuItem(
+                'Time Zone'
+            );
+            const timezones = ['UTC', 'GMT', 'Z', 'JST', 'EST', 'PST', 'CST', 'IST']; // Added JST
+            timezones.forEach((tz) => {
+                let menuItem = new PopupMenu.PopupMenuItem(tz);
+                menuItem.connect('activate', () => {
+                    this.settings.set_string('time-zone', tz);
+                });
+                this.ClockMenuTimeZone.menu.addMenuItem(menuItem);
+            });
+            this.menu.addMenuItem(this.ClockMenuTimeZone);
 
             this.menuSignal7 = this.connect('button-press-event', () => {
                 if (this.gnomeSecondsSettings.get_boolean('clock-show-seconds'))
@@ -231,6 +249,12 @@ let UTCClock = GObject.registerClass(
                 this.set12HourEnabled.bind(this)
             );
             
+            this.setTimeZone();
+            this.settingsSignals[5] = this.settings.connect(
+                'changed::time-zone',
+                this.setTimeZone.bind(this)
+            );
+
             this.buildMenu();
             this.log_this('Enabled.');
         }
@@ -243,6 +267,7 @@ let UTCClock = GObject.registerClass(
             this.settings.disconnect(this.settingsSignals[2]);
             this.settings.disconnect(this.settingsSignals[3]);
             this.settings.disconnect(this.settingsSignals[4]);
+            this.settings.disconnect(this.settingsSignals[5]);
             this.ClockMenuItemSeconds.disconnect(this.menuSignal1);
             this.PopupMenuItemUTC.disconnect(this.menuSignal2);
             this.PopupMenuItemGMT.disconnect(this.menuSignal3);
